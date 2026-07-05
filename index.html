@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Air Residences — Authorization Letter</title>
 <style>
   :root{
@@ -187,6 +188,8 @@
   .sheet{
     width:850px;
     max-width:100%;
+    aspect-ratio:210/297;
+    box-sizing:border-box;
     background:var(--paper);
     padding:50px 56px 46px;
     box-shadow:0 10px 40px rgba(0,0,0,0.18);
@@ -287,7 +290,33 @@
     .panel{display:none;}
     .app{display:block;}
     .preview-wrap{padding:0;background:#fff;}
-    .sheet{box-shadow:none;width:100%;padding:20px 34px;}
+    .sheet{box-shadow:none;width:100%;aspect-ratio:auto;padding:20px 34px;}
+  }
+
+  @media (max-width: 860px){
+    .app{
+      display:block;
+    }
+    .panel{
+      border-right:none;
+      border-bottom:1px solid var(--panel-border);
+      padding:20px 16px 32px;
+    }
+    .preview-wrap{
+      padding:20px 12px 40px;
+      overflow-x:hidden;
+    }
+    .sheet{
+      /* Keep the page at its real design width (850px) so text wraps
+         exactly as it does on desktop, then zoom the whole page down
+         visually to fit the phone screen. This preserves the true
+         A4 page shape instead of the content reflowing into a much
+         taller single column. */
+      width:850px;
+      zoom:calc((100vw - 24px) / 850);
+    }
+    .row2{grid-template-columns:1fr;}
+    .actions{flex-direction:column;}
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -537,12 +566,54 @@ document.getElementById('jpegBtn').addEventListener('click', async () => {
   btn.textContent = 'Generating…';
   try {
     const sheet = document.getElementById('sheet');
-    const canvas = await html2canvas(sheet, {
-      scale: 2,
+
+    // Mobile browsers (especially iOS Safari) cap canvas dimensions
+    // (~4096px per side, ~16M total pixels). If the letter is long
+    // (many guests added, long content), a fixed scale of 2 can exceed
+    // that limit and silently fail or produce a blank image. So we
+    // compute the largest safe scale for this specific content first.
+    const SAFE_MAX_DIMENSION = 4000;
+    const SAFE_MAX_AREA = 15000000;
+
+    const rawWidth = sheet.scrollWidth;
+    const rawHeight = sheet.scrollHeight;
+
+    let scale = 2;
+    scale = Math.min(scale, SAFE_MAX_DIMENSION / rawWidth);
+    scale = Math.min(scale, SAFE_MAX_DIMENSION / rawHeight);
+    scale = Math.min(scale, Math.sqrt(SAFE_MAX_AREA / (rawWidth * rawHeight)));
+    scale = Math.max(scale, 1); // never go below 1x
+
+    // Capture the letter at the highest safe resolution
+    const captured = await html2canvas(sheet, {
+      scale: scale,
       backgroundColor: '#fdfcf9',
       useCORS: true
     });
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+    // A4 at 200 DPI: 210mm x 297mm => 1654 x 2339 px
+    const A4_WIDTH = 1654;
+    const A4_HEIGHT = 2339;
+
+    const a4Canvas = document.createElement('canvas');
+    a4Canvas.width = A4_WIDTH;
+    a4Canvas.height = A4_HEIGHT;
+    const ctx = a4Canvas.getContext('2d');
+
+    // Fill entire page white so there are no transparent/empty edges
+    ctx.fillStyle = '#fdfcf9';
+    ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+
+    // Scale captured content to fit within the A4 page (fit both dimensions, preserve aspect ratio)
+    const fitScale = Math.min(A4_WIDTH / captured.width, A4_HEIGHT / captured.height);
+    const drawWidth = captured.width * fitScale;
+    const drawHeight = captured.height * fitScale;
+    const offsetX = (A4_WIDTH - drawWidth) / 2;
+    const offsetY = (A4_HEIGHT - drawHeight) / 2;
+
+    ctx.drawImage(captured, offsetX, offsetY, drawWidth, drawHeight);
+
+    const dataUrl = a4Canvas.toDataURL('image/jpeg', 0.95);
     const link = document.createElement('a');
     const unitVal = document.getElementById('unit').value;
     link.download = `Authorization-Letter${unitVal ? '-Unit-' + unitVal : ''}.jpg`;
@@ -600,3 +671,5 @@ renderPreview();
 </script>
 </body>
 </html>
+
+

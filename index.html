@@ -256,6 +256,10 @@
   }
   table.guests th{background:#f2f0ea;font-size:12px;font-weight:700;}
   table.guests td.sig-cell img{max-height:34px;max-width:100%;}
+  table.guests td.name-cell{
+  font-size:15px;
+  font-weight:600;
+}
   table.guests td.center{text-align:center;color:#999;}
 
   h3.rules-h{
@@ -723,16 +727,16 @@ function renderPreview(){
     }
   } else {
     cards.forEach(card => {
-      const name = card.querySelector('.g-name').value || '';
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${name || '&nbsp;'}</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-      `;
-      pGuestRows.appendChild(tr);
-    });
+  const name = card.querySelector('.g-name').value || '';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="name-cell">${name || '&nbsp;'}</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  `;
+  pGuestRows.appendChild(tr);
+});
   }
   requestAnimationFrame(fitSheetToA4);
 }
